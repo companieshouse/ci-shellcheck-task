@@ -1,6 +1,6 @@
 # ci-shellcheck-task
 
-This repository contains a Docker image that can be used to run
+This repository contains a minimal Docker image that can be used to run
 [ShellCheck](https://www.shellcheck.net/). The image is based on `alpine:3.12`.
 
 ## Build Args
