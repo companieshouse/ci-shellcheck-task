@@ -5,7 +5,6 @@ ARG tag=v0.9.0
 RUN set -x \
   && apk upgrade --no-cache \
   && arch="$(uname -m)" \
-  && echo "arch is $arch" \
   && url_base='https://github.com/koalaman/shellcheck/releases/download/' \
   && tar_file="${tag}/shellcheck-${tag}.linux.${arch}.tar.xz" \
   && wget "${url_base}${tar_file}" -O - | tar xJf - \
