@@ -22,7 +22,6 @@ COPY --from=builder /bin/shellcheck /bin/shellcheck
 RUN apk add --no-cache bash~=5.0 make~=4.3
 
 LABEL base.image="alpine:3.12" \
-  shellcheck.version="${SHELLCHECK_VERSION}" \
   repostory.name="ci-shellcheck-task"
 
 ENTRYPOINT [ "/bin/bash" ]
