@@ -13,8 +13,7 @@ RUN arch="$(uname -m)" \
   && dnf install -y tar-2:1.34 xz-5.2.5 \
   && url_base='https://github.com/koalaman/shellcheck/releases/download/' \
   && tar_file="${SHELLCHECK_VERSION}/shellcheck-${SHELLCHECK_VERSION}.linux.${arch}.tar.xz" \
-  && wget -q "${url_base}${tar_file}" -O shellcheck.tar.xz \
-  && tar xvfJ shellcheck.tar.xz \
+  && { wget -q "${url_base}${tar_file}" -O - | tar xJf -; } || exit 1 \
   && mv "shellcheck-${SHELLCHECK_VERSION}/shellcheck" /bin/ \
   && rm -rf "shellcheck-${SHELLCHECK_VERSION}"
 
