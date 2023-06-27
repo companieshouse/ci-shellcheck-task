@@ -21,7 +21,7 @@ FROM patched
 
 COPY --from=builder /bin/shellcheck /bin/shellcheck
 
-RUN dnf install bash-5.2.15 make-4.3 && dnf clean all
+RUN dnf install bash-5.2.15 make-4.3 findutils-1:4.8.0 && dnf clean all
 
 LABEL base.image="alpine:3.12" \
   repostory.name="ci-shellcheck-task"
