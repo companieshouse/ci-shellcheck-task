@@ -20,8 +20,10 @@ RUN arch="$(uname -m)" \
 FROM patched
 
 COPY --from=builder /bin/shellcheck /bin/shellcheck
+COPY ./bin/* /opt/ci-shellcheck-task/bin/
+COPY ./lib/* /opt/ci-shellcheck-task/lib/
 
-RUN dnf install -y bash-5.2.15 make-4.3 findutils-1:4.8.0 file-5.39 && dnf clean all
+RUN dnf install -y bash-5.2.15 make-4.3 findutils-1:4.8.0 file-5.39 && dnf clean all && chmod +x /opt/ci-shellcheck-task/bin/*
 
 LABEL base.image="alpine:3.12" \
   repostory.name="ci-shellcheck-task"
