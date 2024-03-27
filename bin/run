@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # This script runs shellcheck across all files within this repository and
-# prints a human readable description of the outcome of the end
+# prints a human readable description of the outcome at the end
 #
 # Exit Codes
 # 0 - Scripts all pass shellcheck
@@ -72,7 +72,6 @@ function is_posix_file() {
   fi
 
   return "${return_status}"
-
 }
 
 # Supplied with a shell and file to output errors to, runs shellcheck against
@@ -112,10 +111,10 @@ source_code="${1:?Source code required}"
 . /opt/ci-shellcheck-task/lib/ci_configuration.bash
 
 if ! command -V shellcheck >/dev/null 2>&1; then
-  printf "shellcheck not found, so cannot run shellcheck\n"
+  printf -- "shellcheck not found, so cannot run shellcheck\n"
   return 1
 else
-  shellcheck_errors=$(mktemp)
+  shellcheck_errors="$(mktemp)"
   trap 'rm "${shellcheck_errors}"' EXIT
 
   # bash_scripts holds list of bash script files found by find commands
@@ -136,20 +135,11 @@ else
     elif is_posix_file "${possible_shell_file}"; then
       posix_scripts+=("${possible_shell_file}")
     fi
-  done < <(find "${source_code}" -type f -not -path "${HIDDEN_FILE_OR_DIR_REGEX}" -not -path "${source_code}/${BACKUPS_REGEX}" -not -path "${source_code}/${LOGS_REGEX}" -not -path "${source_code}/${TESTS_REGEX}" -print0)
+  done < <(find "${source_code}" -type f -not -path "${HIDDEN_FILE_OR_DIR_REGEX}" -print0)
 
-  # find special case: ci scripts, which are in a hidden dir and so would not
-  # have been found in previous find command, which excludes hidden files/dirs
-  # loop over the output of the find command, which uses NUL as its separator, hence -d $'\0'
-  while IFS=  read -r -d $'\0' possible_shell_file; do
-    if is_bash_file "${possible_shell_file}"; then
-      bash_scripts+=("${possible_shell_file}")
-    fi
-  done < <(find "${source_code}/.ci/bin" "${source_code}/.ci/lib" -type f -print0)
-
-  printf 'Linting %s bash scripts\n' "${#bash_scripts[@]}"
+  printf -- 'Linting %s bash scripts\n' "${#bash_scripts[@]}"
   run_shellcheck_against_files "bash" "${shellcheck_errors}" "${bash_scripts[@]}"
-  printf 'Linting %s posix shell scripts\n' "${#posix_scripts[@]}"
+  printf -- 'Linting %s posix shell scripts\n' "${#posix_scripts[@]}"
   run_shellcheck_against_files "sh" "${shellcheck_errors}" "${posix_scripts[@]}"
 
   if [[ -s "${shellcheck_errors}" ]]; then
@@ -157,7 +147,7 @@ else
     cat "${shellcheck_errors}"
     exit 1
   else
-    printf -- '🎉 All shell files pass shell check ✅\n\n'
+    printf -- '🎉 All shell files pass shellcheck ✅\n\n'
   fi
 fi
   
