@@ -1,0 +1,153 @@
+#!/usr/bin/env bash
+# This script runs shellcheck across all files within this repository and
+# prints a human readable description of the outcome at the end
+#
+# Exit Codes
+# 0 - Scripts all pass shellcheck
+# >0 - There are scripts which do not pass shellcheck
+
+# Checks whether the file passed is a binary file
+# Returns
+# 0 - is a binary file
+# 1 - is not a binary file
+function is_binary() {
+  local return_status=1
+  local possible_binary="${1:?File required in first argument}"
+
+  file_type="$(file -b --mime "${possible_binary}")"
+
+  if [[ "${file_type}" == *binary* ]]; then
+    return_status=0
+  fi
+  return "${return_status}"
+}
+
+# Checks the first line of the supplied file matches the shebang regex supplied
+# Returns
+# 0 - first line matches the regex
+# 1 - first line does not match the regex
+function file_has_shebang() {
+  local return_status=1
+  local possible_shell_file="${1:?File required in first argument}"
+  local shebang_regex="${2:?Regex required in second argument}"
+
+  possible_shebang="$(head -n1 "${possible_shell_file}")"
+
+  if [[ "${possible_shebang}" =~ $shebang_regex ]]; then
+    return_status=0
+  fi
+
+  return "${return_status}"
+}
+
+# Checks whether the requested file is a bash file
+# Returns
+# 0 - is a bash file
+# 1 - is not a bash file
+function is_bash_file() {
+  local return_status=1
+  local possible_shell_file="${1:?File required in first argument}"
+
+  if ! is_binary "${possible_shell_file}"; then
+    if file_has_shebang "${possible_shell_file}" "${bash_shebang_regex}" || [[ "${possible_shell_file}" == *.bash ]]; then
+      return_status=0
+    fi
+  fi
+
+  return "${return_status}"
+}
+
+# Checks whether the requested file is a posix sh file
+# Returns
+# 0 - is a posix sh file
+# 1 - is not a posix sh file
+function is_posix_file() {
+  local return_status=1
+  local possible_sh_file="${1:?File required in first argument}"
+
+  if ! is_binary "${possible_sh_file}"; then
+    if file_has_shebang "${possible_sh_file}" "${sh_shebang_regex}" || [[ "${possible_sh_file}" == *.sh ]]; then
+      return_status=0
+    fi
+  fi
+
+  return "${return_status}"
+}
+
+# Supplied with a shell and file to output errors to, runs shellcheck against
+# the files passed in the remaining arguments
+function run_shellcheck_against_files() {
+  local shell="${1}"
+  local shellcheck_errors="${2}"
+  shift 2
+
+  files=("$@")
+
+  # Now loop over all scripts, feeding each one to shellcheck and
+  #  collating errors.
+  # Note that we could just collate all of the files into one string to feed
+  #  to shellcheck, but that goes wrong if there are spaces in the path as the
+  #  shell mistakenly splits on WS. There is no way to feed shellcheck the whole
+  #  list as one string separated by NULs, which is the safe way to pass
+  #  filenames.
+  for shell_script in "${files[@]}"; do
+    local shellcheck_status=0
+    local shellcheck_output
+    shellcheck_output="$(shellcheck --shell="${shell}" "${shell_script}")" || shellcheck_status=$?
+
+    if [[ "${shellcheck_status}" -ne 0 ]]; then
+      {
+        printf -- '%s\n\n' "${shellcheck_output}"
+        printf -- '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n\n'
+      }>>"${shellcheck_errors}"
+    fi
+  done
+
+}
+
+source_code="${1:?Source code required}"
+
+# shellcheck disable=SC1091 # sourced file not specified as input
+. /opt/ci-shellcheck-task/lib/ci_configuration.bash
+
+if ! command -V shellcheck >/dev/null 2>&1; then
+  printf -- "shellcheck not found, so cannot run shellcheck\n"
+  return 1
+else
+  shellcheck_errors="$(mktemp)"
+  trap 'rm "${shellcheck_errors}"' EXIT
+
+  # bash_scripts holds list of bash script files found by find commands
+  bash_scripts=()
+
+  # posix_scripts holds list of posix shell script files found by find commands
+  posix_scripts=()
+
+  #regex to match bash shebangs, such as #!/bin/bash, #!/usr/bin/env bash, etc
+  bash_shebang_regex='^#!.*bash'
+  sh_shebang_regex='^^#!.*[ /]sh'
+
+  # find all scripts that are not in a hidden dir or file
+  # loop over the output of the find command, which uses NUL as its separator, hence -d $'\0'
+  while IFS=  read -r -d $'\0' possible_shell_file; do
+    if is_bash_file "${possible_shell_file}"; then
+      bash_scripts+=("${possible_shell_file}")
+    elif is_posix_file "${possible_shell_file}"; then
+      posix_scripts+=("${possible_shell_file}")
+    fi
+  done < <(find "${source_code}" -type f -not -path "${HIDDEN_FILE_OR_DIR_REGEX}" -print0)
+
+  printf -- 'Linting %s bash scripts\n' "${#bash_scripts[@]}"
+  run_shellcheck_against_files "bash" "${shellcheck_errors}" "${bash_scripts[@]}"
+  printf -- 'Linting %s posix shell scripts\n' "${#posix_scripts[@]}"
+  run_shellcheck_against_files "sh" "${shellcheck_errors}" "${posix_scripts[@]}"
+
+  if [[ -s "${shellcheck_errors}" ]]; then
+    printf -- 'There were shellcheck errors ❌ :\n'
+    cat "${shellcheck_errors}"
+    exit 1
+  else
+    printf -- '🎉 All shell files pass shellcheck ✅\n\n'
+  fi
+fi
+  
